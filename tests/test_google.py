@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
+from zoneinfo import ZoneInfo
 
 from calendar_sync.google import GoogleClient
 from calendar_sync.models import SourceEvent
@@ -139,3 +140,20 @@ def test_delete_event_on_instance_id_works_via_same_api():
     delete.assert_called_once_with(
         calendarId="cal-1", eventId="g-master_R20260615T160000Z"
     )
+
+
+def test_to_google_body_serializes_exdate_in_utc():
+    service = MagicMock()
+    insert = service.events.return_value.insert
+    insert.return_value.execute.return_value = {"id": "g-new"}
+
+    src = _source(
+        rrule="FREQ=WEEKLY;BYDAY=MO",
+        exdates=(datetime(2026, 6, 15, 9, 0, tzinfo=ZoneInfo("America/Los_Angeles")),),
+    )
+    client = GoogleClient(service=service, calendar_id="cal-1")
+    client.create_event(src)
+
+    body = insert.call_args.kwargs["body"]
+    # 9am Los Angeles in June (DST, UTC-7) == 16:00 UTC
+    assert "EXDATE:20260615T160000Z" in body["recurrence"]

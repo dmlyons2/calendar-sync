@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Iterable
 
 from google.oauth2 import service_account
@@ -86,7 +86,7 @@ def _to_google_body(source) -> dict:
     if source.rrule:
         recurrence = [f"RRULE:{source.rrule}"]
         for ex in source.exdates:
-            recurrence.append(f"EXDATE:{ex.strftime('%Y%m%dT%H%M%SZ')}")
+            recurrence.append(f"EXDATE:{ex.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}")
         body["recurrence"] = recurrence
     return body
 
