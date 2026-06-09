@@ -64,3 +64,27 @@ def test_create_new_single_event():
     assert len(actions) == 1
     assert isinstance(actions[0], Create)
     assert actions[0].source.uid == "uid-1"
+
+
+def test_no_change_when_sequence_matches():
+    s = _src("uid-1", sequence=3)
+    t = _tgt("uid-1", sequence=3)
+    actions = reconcile([s], [t], WINDOW)
+    assert actions == []
+
+
+def test_update_when_sequence_bumped():
+    s = _src("uid-1", sequence=4)
+    t = _tgt("uid-1", sequence=3)
+    actions = reconcile([s], [t], WINDOW)
+    assert len(actions) == 1
+    assert isinstance(actions[0], Update)
+    assert actions[0].google_event_id == "g1"
+    assert actions[0].source.sequence == 4
+
+
+def test_no_update_when_target_sequence_higher():
+    s = _src("uid-1", sequence=2)
+    t = _tgt("uid-1", sequence=5)
+    actions = reconcile([s], [t], WINDOW)
+    assert actions == []
