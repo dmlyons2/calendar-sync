@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timezone
 from typing import Literal
@@ -42,6 +43,7 @@ class TargetEvent:
     ics_recurrence_id: str | None
     sequence: int | None
     start: datetime | date
+    content_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -62,3 +64,24 @@ class Delete:
 
 
 Action = Create | Update | Delete
+
+
+def content_hash(source: SourceEvent) -> str:
+    """Stable hash over the fields that matter for sync. Used in place of
+    iCal SEQUENCE because Outlook frequently mutates events (adds EXDATEs,
+    renames, moves times) without bumping SEQUENCE."""
+    exdates_utc = sorted(
+        ex.astimezone(timezone.utc).isoformat() for ex in source.exdates
+    )
+    parts = [
+        source.summary,
+        source.description or "",
+        source.location or "",
+        source.start.isoformat(),
+        source.end.isoformat(),
+        source.rrule or "",
+        "|".join(exdates_utc),
+        source.status,
+    ]
+    raw = "\x1e".join(parts)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]

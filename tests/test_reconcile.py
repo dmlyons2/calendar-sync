@@ -7,6 +7,7 @@ from calendar_sync.models import (
     TargetEvent,
     Update,
     Window,
+    content_hash,
 )
 from calendar_sync.reconcile import reconcile
 
@@ -43,13 +44,19 @@ def _tgt(
     google_event_id: str = "g1",
     sequence: int | None = 0,
     start: datetime | None = None,
+    content_hash_value: str | None = "MATCH_DEFAULT",
 ) -> TargetEvent:
+    # Default content hash matches the hash of _src(uid, recurrence_id) so
+    # tests that don't care about change detection are no-ops by default.
+    if content_hash_value == "MATCH_DEFAULT":
+        content_hash_value = content_hash(_src(uid, recurrence_id))
     return TargetEvent(
         google_event_id=google_event_id,
         ics_uid=uid,
         ics_recurrence_id=recurrence_id,
         sequence=sequence,
         start=start or datetime(2026, 6, 1, 15, 0, tzinfo=timezone.utc),
+        content_hash=content_hash_value,
     )
 
 
@@ -66,28 +73,32 @@ def test_create_new_single_event():
     assert actions[0].source.uid == "uid-1"
 
 
-def test_no_change_when_sequence_matches():
+def test_no_change_when_content_hash_matches():
     s = _src("uid-1", sequence=3)
     t = _tgt("uid-1", sequence=3)
     actions = reconcile([s], [t], WINDOW)
     assert actions == []
 
 
-def test_update_when_sequence_bumped():
-    s = _src("uid-1", sequence=4)
-    t = _tgt("uid-1", sequence=3)
+def test_update_when_content_hash_differs():
+    # Same SEQUENCE, but target was stamped with a stale hash. Real-world case:
+    # Outlook added an EXDATE without bumping SEQUENCE.
+    s = _src("uid-1", sequence=3)
+    t = _tgt("uid-1", sequence=3, content_hash_value="stale-hash")
     actions = reconcile([s], [t], WINDOW)
     assert len(actions) == 1
     assert isinstance(actions[0], Update)
     assert actions[0].google_event_id == "g1"
-    assert actions[0].source.sequence == 4
 
 
-def test_no_update_when_target_sequence_higher():
-    s = _src("uid-1", sequence=2)
-    t = _tgt("uid-1", sequence=5)
+def test_update_when_target_has_no_content_hash():
+    # Migration path: events written by the old SEQUENCE-based version have no
+    # stored hash. They should be refreshed once.
+    s = _src("uid-1", sequence=3)
+    t = _tgt("uid-1", sequence=3, content_hash_value=None)
     actions = reconcile([s], [t], WINDOW)
-    assert actions == []
+    assert len(actions) == 1
+    assert isinstance(actions[0], Update)
 
 
 def test_cancel_single_event():

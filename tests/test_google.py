@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 from calendar_sync.google import GoogleClient
-from calendar_sync.models import SourceEvent
+from calendar_sync.models import SourceEvent, content_hash
 
 SAFETY_TAG = "syncSource=outlook-ics"
 
@@ -47,6 +47,7 @@ def test_list_synced_events_returns_target_events():
                         "icsUid": "uid-1",
                         "icsRecurrenceId": "",
                         "icsSequence": "3",
+                        "icsContentHash": "abc123",
                     }
                 },
             }
@@ -61,6 +62,7 @@ def test_list_synced_events_returns_target_events():
     assert e.ics_uid == "uid-1"
     assert e.ics_recurrence_id is None
     assert e.sequence == 3
+    assert e.content_hash == "abc123"
 
 
 def _source(**overrides) -> SourceEvent:
@@ -99,6 +101,7 @@ def test_create_event_stamps_safety_properties():
     assert props["icsUid"] == "uid-1"
     assert props["icsRecurrenceId"] == ""
     assert props["icsSequence"] == "2"
+    assert props["icsContentHash"] == content_hash(_source())
 
 
 def test_update_event_uses_patch_with_event_id():

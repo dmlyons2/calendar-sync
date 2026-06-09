@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from .models import Action, Create, Delete, SourceEvent, TargetEvent, Update, Window
+from .models import (
+    Action,
+    Create,
+    Delete,
+    SourceEvent,
+    TargetEvent,
+    Update,
+    Window,
+    content_hash,
+)
 
 
 def reconcile(
@@ -28,7 +37,7 @@ def reconcile(
             continue
         if key not in tgt_by_key:
             actions.append(Create(s))
-        elif s.sequence > (tgt_by_key[key].sequence or -1):
+        elif content_hash(s) != tgt_by_key[key].content_hash:
             actions.append(Update(tgt_by_key[key].google_event_id, s))
 
     # 3. Vanished from feed within window → delete

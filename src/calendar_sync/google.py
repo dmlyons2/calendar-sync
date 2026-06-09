@@ -8,7 +8,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from .models import TargetEvent
+from .models import TargetEvent, content_hash
 
 SYNC_SOURCE_TAG = "outlook-ics"
 SAFETY_FILTER = f"syncSource={SYNC_SOURCE_TAG}"
@@ -55,6 +55,7 @@ def _to_target_event(item: dict) -> TargetEvent:
         ics_recurrence_id=rid,
         sequence=sequence,
         start=_parse_event_start(item),
+        content_hash=props.get("icsContentHash") or None,
     )
 
 
@@ -77,6 +78,7 @@ def _to_google_body(source) -> dict:
                 "icsUid": source.uid,
                 "icsRecurrenceId": source.recurrence_id or "",
                 "icsSequence": str(source.sequence),
+                "icsContentHash": content_hash(source),
             }
         },
     }
