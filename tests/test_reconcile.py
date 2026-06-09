@@ -88,3 +88,19 @@ def test_no_update_when_target_sequence_higher():
     t = _tgt("uid-1", sequence=5)
     actions = reconcile([s], [t], WINDOW)
     assert actions == []
+
+
+def test_cancel_single_event():
+    s = _src("uid-1", status="CANCELLED", sequence=2)
+    t = _tgt("uid-1", sequence=1)
+    actions = reconcile([s], [t], WINDOW)
+    assert len(actions) == 1
+    assert isinstance(actions[0], Delete)
+    assert actions[0].google_event_id == "g1"
+    assert actions[0].reason == "cancelled"
+
+
+def test_cancelled_source_not_in_target_is_noop():
+    s = _src("uid-1", status="CANCELLED")
+    actions = reconcile([s], [], WINDOW)
+    assert actions == []
