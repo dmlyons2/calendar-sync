@@ -1,6 +1,8 @@
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from calendar_sync.google import GoogleClient
+from calendar_sync.models import SourceEvent
 
 SAFETY_TAG = "syncSource=outlook-ics"
 
@@ -58,3 +60,66 @@ def test_list_synced_events_returns_target_events():
     assert e.ics_uid == "uid-1"
     assert e.ics_recurrence_id is None
     assert e.sequence == 3
+
+
+def _source(**overrides) -> SourceEvent:
+    defaults = dict(
+        uid="uid-1",
+        recurrence_id=None,
+        summary="Standup",
+        description="Daily",
+        location="Zoom",
+        start=datetime(2026, 6, 15, 9, 0, tzinfo=timezone.utc),
+        end=datetime(2026, 6, 15, 10, 0, tzinfo=timezone.utc),
+        tzid="America/Los_Angeles",
+        rrule=None,
+        exdates=(),
+        status="CONFIRMED",
+        sequence=2,
+        last_modified=None,
+    )
+    defaults.update(overrides)
+    return SourceEvent(**defaults)
+
+
+def test_create_event_stamps_safety_properties():
+    service = MagicMock()
+    insert = service.events.return_value.insert
+    insert.return_value.execute.return_value = {"id": "g-new"}
+
+    client = GoogleClient(service=service, calendar_id="cal-1")
+    google_id = client.create_event(_source())
+
+    assert google_id == "g-new"
+    body = insert.call_args.kwargs["body"]
+    assert body["summary"] == "Standup"
+    props = body["extendedProperties"]["private"]
+    assert props["syncSource"] == "outlook-ics"
+    assert props["icsUid"] == "uid-1"
+    assert props["icsRecurrenceId"] == ""
+    assert props["icsSequence"] == "2"
+
+
+def test_update_event_uses_patch_with_event_id():
+    service = MagicMock()
+    patch = service.events.return_value.patch
+    patch.return_value.execute.return_value = {"id": "g-1"}
+
+    client = GoogleClient(service=service, calendar_id="cal-1")
+    client.update_event("g-1", _source(sequence=5))
+
+    assert patch.call_args.kwargs["calendarId"] == "cal-1"
+    assert patch.call_args.kwargs["eventId"] == "g-1"
+    body = patch.call_args.kwargs["body"]
+    assert body["extendedProperties"]["private"]["icsSequence"] == "5"
+
+
+def test_delete_event():
+    service = MagicMock()
+    delete = service.events.return_value.delete
+    delete.return_value.execute.return_value = None
+
+    client = GoogleClient(service=service, calendar_id="cal-1")
+    client.delete_event("g-1")
+
+    delete.assert_called_once_with(calendarId="cal-1", eventId="g-1")

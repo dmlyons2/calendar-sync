@@ -58,6 +58,39 @@ def _to_target_event(item: dict) -> TargetEvent:
     )
 
 
+def _format_dt(value):
+    if isinstance(value, datetime):
+        return {"dateTime": value.isoformat()}
+    return {"date": value.isoformat()}
+
+
+def _to_google_body(source) -> dict:
+    body: dict = {
+        "summary": source.summary,
+        "description": source.description or "",
+        "location": source.location or "",
+        "start": _format_dt(source.start),
+        "end": _format_dt(source.end),
+        "extendedProperties": {
+            "private": {
+                "syncSource": SYNC_SOURCE_TAG,
+                "icsUid": source.uid,
+                "icsRecurrenceId": source.recurrence_id or "",
+                "icsSequence": str(source.sequence),
+            }
+        },
+    }
+    if isinstance(source.start, datetime) and source.tzid:
+        body["start"]["timeZone"] = source.tzid
+        body["end"]["timeZone"] = source.tzid
+    if source.rrule:
+        recurrence = [f"RRULE:{source.rrule}"]
+        for ex in source.exdates:
+            recurrence.append(f"EXDATE:{ex.strftime('%Y%m%dT%H%M%SZ')}")
+        body["recurrence"] = recurrence
+    return body
+
+
 class GoogleClient:
     def __init__(self, *, service, calendar_id: str):
         self._service = service
@@ -77,3 +110,25 @@ class GoogleClient:
             for item in response.get("items", []):
                 yield _to_target_event(item)
             request = events_api.list_next(request, response)
+
+    def create_event(self, source) -> str:
+        body = _to_google_body(source)
+        response = _retry(
+            self._service.events().insert(calendarId=self._calendar_id, body=body).execute
+        )
+        return response["id"]
+
+    def update_event(self, google_event_id: str, source) -> None:
+        body = _to_google_body(source)
+        _retry(
+            self._service.events()
+            .patch(calendarId=self._calendar_id, eventId=google_event_id, body=body)
+            .execute
+        )
+
+    def delete_event(self, google_event_id: str) -> None:
+        _retry(
+            self._service.events()
+            .delete(calendarId=self._calendar_id, eventId=google_event_id)
+            .execute
+        )
