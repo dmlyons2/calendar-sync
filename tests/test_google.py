@@ -123,3 +123,19 @@ def test_delete_event():
     client.delete_event("g-1")
 
     delete.assert_called_once_with(calendarId="cal-1", eventId="g-1")
+
+
+def test_delete_event_on_instance_id_works_via_same_api():
+    """Documents that cancelling one occurrence uses the same delete_event path,
+    because we previously stored the override as a tagged Google event whose ID
+    is the instance ID."""
+    service = MagicMock()
+    delete = service.events.return_value.delete
+    delete.return_value.execute.return_value = None
+
+    client = GoogleClient(service=service, calendar_id="cal-1")
+    client.delete_event("g-master_R20260615T160000Z")
+
+    delete.assert_called_once_with(
+        calendarId="cal-1", eventId="g-master_R20260615T160000Z"
+    )
