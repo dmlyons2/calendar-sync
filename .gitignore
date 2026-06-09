@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# calendar-sync
+.env
+*service-account*.json
+.venv/
