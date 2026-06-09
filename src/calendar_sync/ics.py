@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import time
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
+import requests
 from icalendar import Calendar
 
 from .models import SourceEvent
@@ -95,3 +97,29 @@ def parse_ics(text: str, *, default_tz: str) -> list[SourceEvent]:
             )
         )
     return events
+
+
+class IcsFetchError(RuntimeError):
+    pass
+
+
+def fetch_ics(
+    url: str,
+    *,
+    timeout: float = 30.0,
+    max_attempts: int = 3,
+    backoff_base: float = 1.0,
+) -> str:
+    last_err: Exception | None = None
+    for attempt in range(max_attempts):
+        try:
+            resp = requests.get(url, timeout=timeout)
+            if resp.status_code >= 500:
+                raise IcsFetchError(f"server error {resp.status_code}")
+            resp.raise_for_status()
+            return resp.text
+        except (requests.RequestException, IcsFetchError) as e:
+            last_err = e
+            if attempt + 1 < max_attempts:
+                time.sleep(backoff_base * (4**attempt))
+    raise IcsFetchError(f"failed after {max_attempts} attempts: {last_err}")
