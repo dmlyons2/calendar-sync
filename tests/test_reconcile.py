@@ -104,3 +104,63 @@ def test_cancelled_source_not_in_target_is_noop():
     s = _src("uid-1", status="CANCELLED")
     actions = reconcile([s], [], WINDOW)
     assert actions == []
+
+
+def test_recurring_master_synced_independently_of_overrides():
+    master = _src("uid-1", recurrence_id=None, sequence=1)
+    override = _src(
+        "uid-1",
+        recurrence_id="2026-06-15T15:00:00Z",
+        sequence=1,
+        start=datetime(2026, 6, 15, 16, 0, tzinfo=timezone.utc),
+    )
+    actions = reconcile([master, override], [], WINDOW)
+    assert len(actions) == 2
+    assert all(isinstance(a, Create) for a in actions)
+
+
+def test_cancel_one_occurrence_leaves_master_alone():
+    master_src = _src("uid-1", recurrence_id=None, sequence=2)
+    cancelled_override = _src(
+        "uid-1",
+        recurrence_id="2026-06-15T15:00:00Z",
+        status="CANCELLED",
+        sequence=2,
+    )
+    master_tgt = _tgt(
+        "uid-1", recurrence_id=None, google_event_id="g-master", sequence=2
+    )
+    override_tgt = _tgt(
+        "uid-1",
+        recurrence_id="2026-06-15T15:00:00Z",
+        google_event_id="g-instance",
+        sequence=1,
+    )
+    actions = reconcile(
+        [master_src, cancelled_override], [master_tgt, override_tgt], WINDOW
+    )
+    assert len(actions) == 1
+    assert isinstance(actions[0], Delete)
+    assert actions[0].google_event_id == "g-instance"
+    assert actions[0].reason == "cancelled"
+
+
+def test_modify_one_occurrence_updates_only_override():
+    master_src = _src("uid-1", recurrence_id=None, sequence=1)
+    moved = _src(
+        "uid-1",
+        recurrence_id="2026-06-15T15:00:00Z",
+        sequence=2,
+        start=datetime(2026, 6, 15, 17, 0, tzinfo=timezone.utc),
+    )
+    master_tgt = _tgt("uid-1", recurrence_id=None, google_event_id="g-master", sequence=1)
+    override_tgt = _tgt(
+        "uid-1",
+        recurrence_id="2026-06-15T15:00:00Z",
+        google_event_id="g-instance",
+        sequence=1,
+    )
+    actions = reconcile([master_src, moved], [master_tgt, override_tgt], WINDOW)
+    assert len(actions) == 1
+    assert isinstance(actions[0], Update)
+    assert actions[0].google_event_id == "g-instance"
