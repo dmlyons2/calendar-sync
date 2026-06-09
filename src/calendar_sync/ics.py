@@ -67,6 +67,12 @@ def parse_ics(text: str, *, default_tz: str) -> list[SourceEvent]:
         rrule_prop = component.get("rrule")
         rrule = rrule_prop.to_ical().decode() if rrule_prop is not None else None
 
+        # Determine tzid before resolving dtstart (which may add timezone info)
+        tzid = _tzid_of(dtstart)
+        # If dtstart is a datetime without tzinfo (floating time), tzid should be default_tz
+        if isinstance(dtstart, datetime) and dtstart.tzinfo is None:
+            tzid = default_tz
+
         events.append(
             SourceEvent(
                 uid=str(component["uid"]),
@@ -76,7 +82,7 @@ def parse_ics(text: str, *, default_tz: str) -> list[SourceEvent]:
                 location=_str_or_none(component, "location"),
                 start=_resolve_dt(dtstart, default_tz),
                 end=_resolve_dt(dtend, default_tz),
-                tzid=_tzid_of(dtstart),
+                tzid=tzid,
                 rrule=rrule,
                 exdates=_exdates(component),
                 status=(_str_or_none(component, "status") or "CONFIRMED").upper(),  # type: ignore[arg-type]

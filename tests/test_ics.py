@@ -36,3 +36,21 @@ def test_floating_time_uses_default_tz(fixture_text):
     e = events[0]
     assert e.start == datetime(2026, 6, 15, 9, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
     assert e.tzid == "America/Los_Angeles"
+
+
+def test_recurring_with_cancelled_occurrence(fixture_text):
+    events = parse_ics(
+        fixture_text("recurring_with_cancellation.ics"), default_tz="UTC"
+    )
+    assert len(events) == 2
+
+    master = next(e for e in events if e.recurrence_id is None)
+    cancelled = next(e for e in events if e.recurrence_id is not None)
+
+    assert master.rrule is not None
+    assert "FREQ=WEEKLY" in master.rrule
+    assert master.status == "CONFIRMED"
+
+    assert cancelled.uid == master.uid
+    assert cancelled.recurrence_id == "2026-06-15T16:00:00Z"
+    assert cancelled.status == "CANCELLED"
