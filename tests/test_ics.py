@@ -1,7 +1,30 @@
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from calendar_sync.ics import parse_ics
+import pytest
+
+from calendar_sync.ics import IcsParseError, parse_ics
+
+
+def test_parse_ics_wraps_underlying_errors():
+    with pytest.raises(IcsParseError):
+        parse_ics("this is not a valid ics file", default_tz="UTC")
+
+
+def test_parse_ics_wraps_per_component_errors():
+    # Valid VCALENDAR but VEVENT missing required DTSTART.
+    ics = (
+        "BEGIN:VCALENDAR\r\n"
+        "VERSION:2.0\r\n"
+        "PRODID:-//test//\r\n"
+        "BEGIN:VEVENT\r\n"
+        "UID:broken-1\r\n"
+        "SUMMARY:no dtstart\r\n"
+        "END:VEVENT\r\n"
+        "END:VCALENDAR\r\n"
+    )
+    with pytest.raises(IcsParseError):
+        parse_ics(ics, default_tz="UTC")
 
 
 def test_parse_single_timed_event(fixture_text):
