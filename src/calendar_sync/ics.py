@@ -100,6 +100,10 @@ def parse_ics(text: str, *, default_tz: str) -> list[SourceEvent]:
                 )
             )
     except Exception as e:
+        # Broad catch is intentional: any failure during parsing should surface
+        # as a clean IcsParseError at the CLI boundary rather than a traceback.
+        # Tradeoff: a programming bug inside parse_ics also gets wrapped; the
+        # original is preserved via __cause__ for DEBUG-level inspection.
         raise IcsParseError(f"failed to parse ICS feed: {e}") from e
     return events
 
