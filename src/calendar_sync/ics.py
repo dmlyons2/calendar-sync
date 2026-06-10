@@ -56,50 +56,59 @@ def _exdates(component) -> tuple[datetime, ...]:
 
 
 def parse_ics(text: str, *, default_tz: str) -> list[SourceEvent]:
-    cal = Calendar.from_ical(text)
-    events: list[SourceEvent] = []
-    for component in cal.walk("VEVENT"):
-        dtstart = component.get("dtstart").dt
-        dtend_prop = component.get("dtend")
-        dtend = dtend_prop.dt if dtend_prop is not None else dtstart
+    try:
+        cal = Calendar.from_ical(text)
+        events: list[SourceEvent] = []
+        for component in cal.walk("VEVENT"):
+            dtstart = component.get("dtstart").dt
+            dtend_prop = component.get("dtend")
+            dtend = dtend_prop.dt if dtend_prop is not None else dtstart
 
-        rid_prop = component.get("recurrence-id")
-        recurrence_id = _canonical_recurrence_id(rid_prop.dt) if rid_prop is not None else None
-
-        rrule_prop = component.get("rrule")
-        rrule = rrule_prop.to_ical().decode() if rrule_prop is not None else None
-
-        # Determine tzid before resolving dtstart (which may add timezone info)
-        tzid = _tzid_of(dtstart)
-        # If dtstart is a datetime without tzinfo (floating time), tzid should be default_tz
-        if isinstance(dtstart, datetime) and dtstart.tzinfo is None:
-            tzid = default_tz
-
-        events.append(
-            SourceEvent(
-                uid=str(component["uid"]),
-                recurrence_id=recurrence_id,
-                summary=_str_or_none(component, "summary") or "",
-                description=_str_or_none(component, "description"),
-                location=_str_or_none(component, "location"),
-                start=_resolve_dt(dtstart, default_tz),
-                end=_resolve_dt(dtend, default_tz),
-                tzid=tzid,
-                rrule=rrule,
-                exdates=_exdates(component),
-                status=(_str_or_none(component, "status") or "CONFIRMED").upper(),  # type: ignore[arg-type]
-                sequence=_int_or_zero(component, "sequence"),
-                last_modified=(
-                    component.get("last-modified").dt
-                    if component.get("last-modified") is not None
-                    else None
-                ),
+            rid_prop = component.get("recurrence-id")
+            recurrence_id = (
+                _canonical_recurrence_id(rid_prop.dt) if rid_prop is not None else None
             )
-        )
+
+            rrule_prop = component.get("rrule")
+            rrule = rrule_prop.to_ical().decode() if rrule_prop is not None else None
+
+            # Determine tzid before resolving dtstart (which may add timezone info)
+            tzid = _tzid_of(dtstart)
+            # If dtstart is a datetime without tzinfo (floating time), tzid should be default_tz
+            if isinstance(dtstart, datetime) and dtstart.tzinfo is None:
+                tzid = default_tz
+
+            events.append(
+                SourceEvent(
+                    uid=str(component["uid"]),
+                    recurrence_id=recurrence_id,
+                    summary=_str_or_none(component, "summary") or "",
+                    description=_str_or_none(component, "description"),
+                    location=_str_or_none(component, "location"),
+                    start=_resolve_dt(dtstart, default_tz),
+                    end=_resolve_dt(dtend, default_tz),
+                    tzid=tzid,
+                    rrule=rrule,
+                    exdates=_exdates(component),
+                    status=(_str_or_none(component, "status") or "CONFIRMED").upper(),  # type: ignore[arg-type]
+                    sequence=_int_or_zero(component, "sequence"),
+                    last_modified=(
+                        component.get("last-modified").dt
+                        if component.get("last-modified") is not None
+                        else None
+                    ),
+                )
+            )
+    except Exception as e:
+        raise IcsParseError(f"failed to parse ICS feed: {e}") from e
     return events
 
 
 class IcsFetchError(RuntimeError):
+    pass
+
+
+class IcsParseError(RuntimeError):
     pass
 
 
