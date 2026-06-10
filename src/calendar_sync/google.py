@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from datetime import date, datetime, timezone
 from typing import Iterable
@@ -15,7 +16,8 @@ SAFETY_FILTER = f"syncSource={SYNC_SOURCE_TAG}"
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
-_RETRY_STATUSES = {403, 429, 500, 502, 503, 504}
+_RETRY_STATUSES = {429, 500, 502, 503, 504}
+_RETRYABLE_403_REASONS = {"rateLimitExceeded", "userRateLimitExceeded"}
 
 
 def build_service(credentials_path: str):
@@ -25,13 +27,37 @@ def build_service(credentials_path: str):
     return build("calendar", "v3", credentials=creds, cache_discovery=False)
 
 
+def _http_error_reason(e: HttpError) -> str | None:
+    content = getattr(e, "content", None)
+    if isinstance(content, bytes):
+        content = content.decode("utf-8", errors="replace")
+    if not content:
+        return None
+    try:
+        body = json.loads(content)
+    except ValueError:
+        return None
+    errors = body.get("error", {}).get("errors") or []
+    if errors and isinstance(errors[0], dict):
+        return errors[0].get("reason")
+    return None
+
+
+def _is_retryable(e: HttpError) -> bool:
+    status = getattr(e.resp, "status", None)
+    if status in _RETRY_STATUSES:
+        return True
+    if status == 403:
+        return _http_error_reason(e) in _RETRYABLE_403_REASONS
+    return False
+
+
 def _retry(callable_, *, max_attempts: int = 5, backoff_base: float = 1.0):
     for attempt in range(max_attempts):
         try:
             return callable_()
         except HttpError as e:
-            status = getattr(e.resp, "status", None)
-            if status not in _RETRY_STATUSES or attempt + 1 == max_attempts:
+            if not _is_retryable(e) or attempt + 1 == max_attempts:
                 raise
             time.sleep(backoff_base * (2**attempt))
     raise RuntimeError("unreachable")
