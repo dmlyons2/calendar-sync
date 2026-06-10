@@ -1,8 +1,12 @@
+import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
-from calendar_sync.google import GoogleClient
+import pytest
+from googleapiclient.errors import HttpError
+
+from calendar_sync.google import GoogleClient, _retry
 from calendar_sync.models import SourceEvent, content_hash
 
 SAFETY_TAG = "syncSource=outlook-ics"
@@ -143,6 +147,82 @@ def test_delete_event_on_instance_id_works_via_same_api():
     delete.assert_called_once_with(
         calendarId="cal-1", eventId="g-master_R20260615T160000Z"
     )
+
+
+def _http_error(status: int, reason: str | None) -> HttpError:
+    resp = MagicMock()
+    resp.status = status
+    resp.reason = "Forbidden" if status == 403 else "Error"
+    if reason is None:
+        content = b"{}"
+    else:
+        content = json.dumps(
+            {"error": {"code": status, "errors": [{"reason": reason}]}}
+        ).encode()
+    return HttpError(resp, content)
+
+
+def test_retry_does_not_retry_403_permission_denied():
+    calls = []
+
+    def op():
+        calls.append(1)
+        raise _http_error(403, "forbidden")
+
+    with pytest.raises(HttpError):
+        _retry(op, backoff_base=0)
+    assert len(calls) == 1
+
+
+def test_retry_retries_403_rate_limit_exceeded():
+    calls = []
+
+    def op():
+        calls.append(1)
+        if len(calls) < 3:
+            raise _http_error(403, "rateLimitExceeded")
+        return "ok"
+
+    assert _retry(op, backoff_base=0) == "ok"
+    assert len(calls) == 3
+
+
+def test_retry_retries_403_user_rate_limit_exceeded():
+    calls = []
+
+    def op():
+        calls.append(1)
+        if len(calls) < 2:
+            raise _http_error(403, "userRateLimitExceeded")
+        return "ok"
+
+    assert _retry(op, backoff_base=0) == "ok"
+    assert len(calls) == 2
+
+
+def test_retry_does_not_retry_403_with_unparseable_body():
+    calls = []
+
+    def op():
+        calls.append(1)
+        raise _http_error(403, None)
+
+    with pytest.raises(HttpError):
+        _retry(op, backoff_base=0)
+    assert len(calls) == 1
+
+
+def test_retry_still_retries_429():
+    calls = []
+
+    def op():
+        calls.append(1)
+        if len(calls) < 2:
+            raise _http_error(429, "rateLimitExceeded")
+        return "ok"
+
+    assert _retry(op, backoff_base=0) == "ok"
+    assert len(calls) == 2
 
 
 def test_to_google_body_serializes_exdate_in_utc():
