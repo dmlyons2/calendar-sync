@@ -1,10 +1,10 @@
 # calendar-sync
 
-Mirror an Outlook calendar into a dedicated Google Calendar, reliably — including cancelled meetings.
+Mirror an Outlook calendar into a dedicated Google Calendar, reliably, including cancelled meetings.
 
 ## What this does
 
-If you live in Google Calendar but have to follow an Outlook calendar (work, school, a shared team calendar), Google's built-in "subscribe by URL" almost works. It refreshes slowly (every 12–24 hours), and — the bigger problem — it doesn't reliably remove meetings that were cancelled, including individual cancelled occurrences of a recurring meeting. You end up with ghost events on your Google calendar.
+If you live in Google Calendar but have to follow an Outlook calendar (work, school, a shared team calendar), Google's built-in "subscribe by URL" almost works. It refreshes slowly (every 12–24 hours), and the bigger problem is that it doesn't reliably remove meetings that were cancelled, including individual cancelled occurrences of a recurring meeting. You end up with ghost events on your Google calendar.
 
 `calendar-sync` replaces that subscription. It reads the Outlook calendar feed, writes events into a dedicated Google calendar you control, and removes cancelled meetings the way you'd expect.
 
@@ -17,21 +17,21 @@ This is for you if:
 - You're willing to spend about 30 minutes following step-by-step instructions.
 - You have a computer that stays on most of the time, or access to a small server, so the sync can run on a schedule.
 
-You do not need to know how to program. You will copy and paste commands. If that's new to you, that's fine — every step says what to do and what success looks like.
+You do not need to know how to program. You will copy and paste commands. If that's new to you, that's fine. Every step says what to do and what success looks like.
 
 ## How it works
 
 ### What the script will and won't touch
 
-The script is designed to be safe. Every event it creates on your Google calendar is invisibly tagged as "made by calendar-sync." When the script looks at your Google calendar, it only sees its own events — it can't read, change, or delete anything else.
+The script is designed to be safe. Every event it creates on your Google calendar is invisibly tagged as "made by calendar-sync." When the script looks at your Google calendar, it only sees its own events. It can't read, change, or delete anything else.
 
 The script also refuses to run against your main Google calendar (the one called "primary"). You'll set up a separate calendar just for synced events, so even in the worst case your personal events are not at risk.
 
 ### How it knows what changed
 
-Every time the script writes an event to Google, it stamps a "fingerprint" on it — a short string computed from the event's title, time, recurrence, exception dates, and a few other fields. On the next run, the script reads the Outlook feed, computes the fingerprint fresh, and compares it to the fingerprint stored on the matching Google event. If they differ, the event gets updated. If they match, nothing happens.
+Every time the script writes an event to Google, it stamps a "fingerprint" on it: a short string computed from the event's title, time, recurrence, exception dates, and a few other fields. On the next run, the script reads the Outlook feed, computes the fingerprint fresh, and compares it to the fingerprint stored on the matching Google event. If they differ, the event gets updated. If they match, nothing happens.
 
-This replaces an earlier approach that used the iCalendar `SEQUENCE` number, which is supposed to increase whenever an event changes. The problem: Outlook frequently changes events — adding cancelled occurrences to a recurring meeting, for example — without bumping `SEQUENCE`. Fingerprint comparison catches those changes; `SEQUENCE` comparison missed them.
+This replaces an earlier approach that used the iCalendar `SEQUENCE` number, which is supposed to increase whenever an event changes. The problem: Outlook frequently changes events (for example, adding cancelled occurrences to a recurring meeting) without bumping `SEQUENCE`. Fingerprint comparison catches those changes; `SEQUENCE` comparison missed them.
 
 ## Before you start
 
@@ -40,7 +40,7 @@ You'll need:
 - A computer running Linux, macOS, or Windows.
 - Python 3.11 or newer. (Check by opening a terminal and running `python3 --version`. On Windows the command is often `py --version`.)
 - A Google account.
-- An Outlook or Microsoft 365 account whose calendar can be published. (Most personal `@outlook.com` accounts and many work accounts support this. Some work accounts disable publishing — check with your IT department if it's missing.)
+- An Outlook or Microsoft 365 account whose calendar can be published. (Most personal `@outlook.com` accounts and many work accounts support this. Some work accounts disable publishing; check with your IT department if it's missing.)
 - About 30 minutes.
 - A place to run the script on a schedule: a computer that stays on, or a small always-on server.
 
@@ -61,7 +61,7 @@ The instructions below assume Linux. Where macOS or Windows differs, look for a 
 3. Choose **Create new calendar**.
 4. Name it something like `Work Outlook (synced)`. Click **Create calendar**.
 5. Once it's created, click it in the sidebar, then click **Settings** (the gear icon → settings, or hover the calendar and click the three-dot menu).
-6. Scroll to **Integrate calendar** and copy the **Calendar ID**. It looks like `abc123...@group.calendar.google.com`. Paste it somewhere temporary — you'll need it in Step 6.
+6. Scroll to **Integrate calendar** and copy the **Calendar ID**. It looks like `abc123...@group.calendar.google.com`. Paste it somewhere temporary. You'll need it in Step 6.
 
 **You should see:** a new empty calendar in the left sidebar, and a calendar ID copied to your clipboard.
 
@@ -247,7 +247,7 @@ Replace `/home/you` with your actual home directory (find it with `echo $HOME`).
 
 ### macOS (launchd)
 
-> *Starter recipe — this command has not been verified end-to-end on macOS. If it doesn't work for you, please [open an issue](https://github.com/dmlyons2/calendar-sync/issues).*
+> *Starter recipe: this command has not been verified end-to-end on macOS. If it doesn't work for you, please [open an issue](https://github.com/dmlyons2/calendar-sync/issues).*
 
 Create `~/Library/LaunchAgents/com.calendar-sync.plist` with:
 
@@ -278,7 +278,7 @@ launchctl load ~/Library/LaunchAgents/com.calendar-sync.plist
 
 ### Windows (Task Scheduler)
 
-> *Starter recipe — this command has not been verified end-to-end on Windows. If it doesn't work for you, please [open an issue](https://github.com/dmlyons2/calendar-sync/issues).*
+> *Starter recipe: this command has not been verified end-to-end on Windows. If it doesn't work for you, please [open an issue](https://github.com/dmlyons2/calendar-sync/issues).*
 
 In PowerShell as your normal user:
 
@@ -292,27 +292,27 @@ You will need to set the environment variables permanently for your user (Contro
 
 ## Troubleshooting
 
-- **`missing required env var`** — the script can't find your config values. If you're running by hand, make sure you ran the `set -a; source ...; set +a` line first. If you're running from cron, make sure the cron line includes the env-loading block.
-- **`403 forbidden` from Google** — the service account isn't shared on the target calendar with "Make changes to events" permission. Re-do Step 3.
-- **Events not deleting when removed from Outlook** — the script only looks at events within a sync window (default: 30 days back, 365 days ahead). Events outside that window are not touched. Adjust with `SYNC_LOOKBACK_DAYS` and `SYNC_LOOKAHEAD_DAYS` env vars.
-- **`previous run still active`** — the previous run hasn't finished yet. Safe to ignore; the next cron tick will run normally.
-- **`python: command not found`** — your system may call it `python3` instead. Try `python3 --version`. On Windows it's typically `py --version`.
-- **I'm on Windows and cron doesn't exist** — that's expected. Use the **Windows (Task Scheduler)** section above.
-- **How do I see what the script is doing?** — on Linux with the cron line above, run `journalctl -t calendar-sync` (systemd) or `grep calendar-sync /var/log/syslog`. On macOS with launchd, check `/tmp/calendar-sync.log`. On Windows, Task Scheduler logs output to its own history view.
+- **`missing required env var`:** the script can't find your config values. If you're running by hand, make sure you ran the `set -a; source ...; set +a` line first. If you're running from cron, make sure the cron line includes the env-loading block.
+- **`403 forbidden` from Google:** the service account isn't shared on the target calendar with "Make changes to events" permission. Re-do Step 3.
+- **Events not deleting when removed from Outlook:** the script only looks at events within a sync window (default: 30 days back, 365 days ahead). Events outside that window are not touched. Adjust with `SYNC_LOOKBACK_DAYS` and `SYNC_LOOKAHEAD_DAYS` env vars.
+- **`previous run still active`:** the previous run hasn't finished yet. Safe to ignore; the next cron tick will run normally.
+- **`python: command not found`:** your system may call it `python3` instead. Try `python3 --version`. On Windows it's typically `py --version`.
+- **I'm on Windows and cron doesn't exist:** that's expected. Use the **Windows (Task Scheduler)** section above.
+- **How do I see what the script is doing?** On Linux with the cron line above, run `journalctl -t calendar-sync` (systemd) or `grep calendar-sync /var/log/syslog`. On macOS with launchd, check `/tmp/calendar-sync.log`. On Windows, Task Scheduler logs output to its own history view.
 
 ## Glossary
 
-- **Service account** — a Google account that belongs to a program, not a person. Used so the script can authenticate without a human logging in.
-- **ICS** — a plain-text file format for calendars (also called iCalendar). When you "publish" your Outlook calendar, Outlook produces an ICS file at a URL.
-- **Virtual environment (venv)** — an isolated copy of Python plus its installed libraries, kept inside one project's directory. Installing libraries into a venv doesn't affect the rest of your system.
-- **Cron** — a Linux/macOS scheduler that runs commands at intervals you specify.
-- **launchd** — macOS's preferred scheduler. Equivalent role to cron but native to macOS.
-- **Task Scheduler** — Windows's built-in scheduler.
-- **Env file** — a plain-text file with `KEY=VALUE` lines, holding configuration values your shell can load into environment variables.
-- **Calendar ID** — Google's unique name for a specific calendar (e.g. `abc123@group.calendar.google.com`). Found in that calendar's settings.
-- **EXDATE** — short for "exception date." In a recurring event, it's a date on which the event is cancelled for that one occurrence only (the rest of the series stays).
-- **Dry run** — running the script with `--dry-run` so it prints what it *would* do without actually changing anything.
-- **Content hash / fingerprint** — a short string computed from an event's fields, used to detect when an event has changed.
+- **Service account:** a Google account that belongs to a program, not a person. Used so the script can authenticate without a human logging in.
+- **ICS:** a plain-text file format for calendars (also called iCalendar). When you "publish" your Outlook calendar, Outlook produces an ICS file at a URL.
+- **Virtual environment (venv):** an isolated copy of Python plus its installed libraries, kept inside one project's directory. Installing libraries into a venv doesn't affect the rest of your system.
+- **Cron:** a Linux/macOS scheduler that runs commands at intervals you specify.
+- **launchd:** macOS's preferred scheduler. Equivalent role to cron but native to macOS.
+- **Task Scheduler:** Windows's built-in scheduler.
+- **Env file:** a plain-text file with `KEY=VALUE` lines, holding configuration values your shell can load into environment variables.
+- **Calendar ID:** Google's unique name for a specific calendar (e.g. `abc123@group.calendar.google.com`). Found in that calendar's settings.
+- **EXDATE:** short for "exception date." In a recurring event, it's a date on which the event is cancelled for that one occurrence only (the rest of the series stays).
+- **Dry run:** running the script with `--dry-run` so it prints what it *would* do without actually changing anything.
+- **Content hash / fingerprint:** a short string computed from an event's fields, used to detect when an event has changed.
 
 ## For developers
 
@@ -321,4 +321,4 @@ pip install -e ".[dev]"
 pytest
 ```
 
-The reconciliation logic in `src/calendar_sync/reconcile.py` is a pure function — give it lists of `SourceEvent` and `TargetEvent` plus a `Window`, get back a list of `Action`s. Exercise it with new fixtures in `tests/fixtures/`. Keep I/O out of `reconcile.py`; `sync.py` is the only module that touches both `ics` and `google`.
+The reconciliation logic in `src/calendar_sync/reconcile.py` is a pure function: give it lists of `SourceEvent` and `TargetEvent` plus a `Window`, get back a list of `Action`s. Exercise it with new fixtures in `tests/fixtures/`. Keep I/O out of `reconcile.py`; `sync.py` is the only module that touches both `ics` and `google`.
