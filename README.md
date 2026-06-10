@@ -191,12 +191,13 @@ set -a; source ~/.config/calendar-sync/env; set +a
 .venv/bin/python -m calendar_sync --dry-run --log-level DEBUG
 ```
 
-**You should see:** log lines describing events the script *would* create. Nothing has changed on your Google calendar yet. Example:
+**You should see:** log lines describing what the script *would* do. Nothing has changed on your Google calendar yet. The output starts with a "starting sync" line, lists each create/update/delete action it would take, and ends with a "Sync complete" summary. For example, on a first run with 47 new events:
 
 ```
-INFO calendar_sync.sync: fetched 47 events from ICS feed
-INFO calendar_sync.sync: 0 existing synced events on target
-INFO calendar_sync.sync: would create 47, would update 0, would delete 0 (dry-run)
+INFO calendar_sync.sync: starting sync (dry_run=True, target=…ndar.com)
+DEBUG calendar_sync.sync: create uid=ABC@outlook.com recurrence_id=None summary='Team standup'
+... (one DEBUG line per action) ...
+INFO calendar_sync: Sync complete: 47 created, 0 updated, 0 deleted (0 cancelled, 0 vanished), 0 errors. Duration: 2.5s.
 ```
 
 > **Windows:** PowerShell uses different syntax for env files. Use this instead:
@@ -293,7 +294,7 @@ You will need to set the environment variables permanently for your user (Contro
 
 - **`missing required env var`** — the script can't find your config values. If you're running by hand, make sure you ran the `set -a; source ...; set +a` line first. If you're running from cron, make sure the cron line includes the env-loading block.
 - **`403 forbidden` from Google** — the service account isn't shared on the target calendar with "Make changes to events" permission. Re-do Step 3.
-- **Events not deleting when removed from Outlook** — the script only looks at events within a sync window (default: 30 days back, 90 days ahead). Events outside that window are not touched. Adjust with `SYNC_LOOKBACK_DAYS` and `SYNC_LOOKAHEAD_DAYS` env vars.
+- **Events not deleting when removed from Outlook** — the script only looks at events within a sync window (default: 30 days back, 365 days ahead). Events outside that window are not touched. Adjust with `SYNC_LOOKBACK_DAYS` and `SYNC_LOOKAHEAD_DAYS` env vars.
 - **`previous run still active`** — the previous run hasn't finished yet. Safe to ignore; the next cron tick will run normally.
 - **`python: command not found`** — your system may call it `python3` instead. Try `python3 --version`. On Windows it's typically `py --version`.
 - **I'm on Windows and cron doesn't exist** — that's expected. Use the **Windows (Task Scheduler)** section above.
