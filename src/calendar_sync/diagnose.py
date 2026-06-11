@@ -54,3 +54,51 @@ def verdict(
         tgt_display = raw_tgt_hash if raw_tgt_hash is not None else "(unset)"
         return f"Update — content_hash differs (source={src_hash} target={tgt_display})"
     return "none — content hashes match"
+
+
+def render_match_line(
+    key: tuple[str, str | None],
+    *,
+    source: SourceEvent | None,
+    target: TargetEvent | None,
+) -> str:
+    uid, recurrence_id = key
+    summary = source.summary if source is not None else ""
+    start = source.start if source is not None else (target.start if target else "")
+    rid = f" recurrence_id={recurrence_id}" if recurrence_id else ""
+    return f'{uid}{rid} "{summary}" @{start}'
+
+
+def render_source(source: SourceEvent | None) -> str:
+    if source is None:
+        return "SOURCE\n  (not in current feed)"
+    exdates = ", ".join(
+        ex.strftime("%Y%m%dT%H%M%SZ") for ex in source.exdates
+    ) or "—"
+    tz_suffix = f" ({source.tzid})" if source.tzid else ""
+    return (
+        "SOURCE\n"
+        f"  uid:            {source.uid}\n"
+        f"  recurrence_id:  {source.recurrence_id or '—'}\n"
+        f"  summary:        {source.summary}\n"
+        f"  start:          {source.start}{tz_suffix}\n"
+        f"  status:         {source.status}\n"
+        f"  sequence:       {source.sequence}\n"
+        f"  rrule:          {source.rrule or '—'}\n"
+        f"  exdates:        {exdates}\n"
+        f"  content_hash:   {content_hash(source)}"
+    )
+
+
+def render_target(target: TargetEvent | None, raw: dict | None) -> str:
+    if target is None:
+        return "TARGET\n  (no Google event)"
+    recurrence = raw.get("recurrence") if raw else None
+    recurrence_display = recurrence if recurrence is not None else "—"
+    return (
+        "TARGET\n"
+        f"  google_event_id: {target.google_event_id}\n"
+        f"  stored_sequence: {target.sequence}\n"
+        f"  stored_hash:     {target.content_hash}\n"
+        f"  recurrence:      {recurrence_display}"
+    )

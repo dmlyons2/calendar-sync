@@ -162,3 +162,65 @@ def test_verdict_update_renders_none_target_hash_as_unset():
     assert "Update" in v
     assert "target=(unset)" in v
     assert "target=None" not in v
+
+
+# --- render tests ---
+
+from calendar_sync.diagnose import render_match_line, render_source, render_target
+
+
+def test_render_match_line_with_source():
+    s = _src(uid="u1", summary="Standup")
+    line = render_match_line(("u1", None), source=s, target=None)
+    assert "u1" in line
+    assert '"Standup"' in line
+    assert "recurrence_id=" not in line  # None is omitted
+
+
+def test_render_match_line_with_recurrence_id():
+    s = _src(uid="u1", recurrence_id="2026-06-15T16:00:00Z", summary="Standup")
+    line = render_match_line(("u1", "2026-06-15T16:00:00Z"), source=s, target=None)
+    assert "recurrence_id=2026-06-15T16:00:00Z" in line
+
+
+def test_render_match_line_target_only_has_blank_summary():
+    t = _tgt(ics_uid="orphan")
+    line = render_match_line(("orphan", None), source=None, target=t)
+    assert "orphan" in line
+    assert '""' in line  # blank summary
+
+
+def test_render_source_present():
+    s = _src(uid="u1", summary="Standup")
+    text = render_source(s)
+    assert text.startswith("SOURCE\n")
+    assert "u1" in text
+    assert "Standup" in text
+    assert "content_hash:" in text
+
+
+def test_render_source_absent():
+    text = render_source(None)
+    assert text == "SOURCE\n  (not in current feed)"
+
+
+def test_render_target_present_with_raw():
+    t = _tgt(google_event_id="g-1")
+    raw = {"id": "g-1", "recurrence": ["RRULE:FREQ=WEEKLY"]}
+    text = render_target(t, raw)
+    assert text.startswith("TARGET\n")
+    assert "g-1" in text
+    assert "RRULE:FREQ=WEEKLY" in text
+
+
+def test_render_target_absent():
+    text = render_target(None, None)
+    assert text == "TARGET\n  (no Google event)"
+
+
+def test_render_target_renders_missing_recurrence_as_dash():
+    t = _tgt(google_event_id="g-1")
+    raw = {"id": "g-1"}
+    text = render_target(t, raw)
+    assert "recurrence:      —" in text
+    assert "None" not in text
