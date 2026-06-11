@@ -125,12 +125,15 @@ def fetch_ics(
     for attempt in range(max_attempts):
         try:
             resp = requests.get(url, timeout=timeout)
-            if resp.status_code >= 500:
-                raise IcsFetchError(f"server error {resp.status_code}")
-            resp.raise_for_status()
-            return resp.text
-        except (requests.RequestException, IcsFetchError) as e:
+        except (requests.ConnectionError, requests.Timeout) as e:
             last_err = e
-            if attempt + 1 < max_attempts:
-                time.sleep(backoff_base * (4**attempt))
+        else:
+            if resp.status_code >= 500:
+                last_err = IcsFetchError(f"server error {resp.status_code}")
+            elif resp.status_code >= 400:
+                raise IcsFetchError(f"client error {resp.status_code} {resp.reason}")
+            else:
+                return resp.text
+        if attempt + 1 < max_attempts:
+            time.sleep(backoff_base * (4**attempt))
     raise IcsFetchError(f"failed after {max_attempts} attempts: {last_err}")
