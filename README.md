@@ -318,7 +318,10 @@ You will need to set the environment variables permanently for your user (Contro
 
 ```bash
 pip install -e ".[dev]"
+pip install pre-commit && pre-commit install
 pytest
 ```
+
+`pre-commit install` registers a git hook that runs `ruff` (lint + format) and a few hygiene checks on every commit. Configuration is in `.pre-commit-config.yaml` and `[tool.ruff]` in `pyproject.toml`. To run the hooks against the whole tree without committing: `pre-commit run --all-files`.
 
 The reconciliation logic in `src/calendar_sync/reconcile.py` is a pure function: give it lists of `SourceEvent` and `TargetEvent` plus a `Window`, get back a list of `Action`s. Exercise it with new fixtures in `tests/fixtures/`. Keep I/O out of `reconcile.py`; `sync.py` is the only module that touches both `ics` and `google`.
