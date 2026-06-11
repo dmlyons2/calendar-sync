@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from .config import Config
+from .google import GoogleClient, build_service
+from .ics import fetch_ics, parse_ics
 from .models import SourceEvent, TargetEvent, Window, content_hash
+from .sync import build_window
 
 
 def find_matches(
@@ -102,3 +106,41 @@ def render_target(target: TargetEvent | None, raw: dict | None) -> str:
         f"  stored_hash:     {target.content_hash}\n"
         f"  recurrence:      {recurrence_display}"
     )
+
+
+def diagnose(cfg: Config, fragment: str) -> tuple[int, str]:
+    ics_text = fetch_ics(cfg.ics_url)
+    sources = parse_ics(ics_text, default_tz=cfg.default_tz)
+    service = build_service(cfg.google_credentials_path)
+    client = GoogleClient(service=service, calendar_id=cfg.target_calendar_id)
+    targets = list(client.list_synced_events())
+
+    keys = find_matches(sources, targets, fragment)
+    if not keys:
+        return 1, f'no matching events for "{fragment}"'
+
+    src_by_key = {(s.uid, s.recurrence_id): s for s in sources}
+    tgt_by_key = {(t.ics_uid, t.ics_recurrence_id): t for t in targets}
+
+    if len(keys) > 1:
+        lines = [
+            render_match_line(k, source=src_by_key.get(k), target=tgt_by_key.get(k))
+            for k in keys
+        ]
+        lines.append("Refine the fragment.")
+        return 2, "\n".join(lines)
+
+    key = keys[0]
+    source = src_by_key.get(key)
+    target = tgt_by_key.get(key)
+    raw = client.get_event(target.google_event_id) if target is not None else None
+    window = build_window(cfg)
+
+    blocks = [
+        render_source(source),
+        "",
+        render_target(target, raw),
+        "",
+        f"VERDICT\n  Action: {verdict(source, target, window)}",
+    ]
+    return 0, "\n".join(blocks)

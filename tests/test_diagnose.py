@@ -224,3 +224,110 @@ def test_render_target_renders_missing_recurrence_as_dash():
     text = render_target(t, raw)
     assert "recurrence:      —" in text
     assert "None" not in text
+
+
+# --- diagnose orchestration tests ---
+
+from unittest.mock import patch
+from calendar_sync.config import Config
+from calendar_sync.diagnose import diagnose
+
+
+def _cfg() -> Config:
+    return Config(
+        ics_url="https://example.com/feed.ics",
+        target_calendar_id="cal-1",
+        google_credentials_path="/tmp/sa.json",
+        lookback_days=30,
+        lookahead_days=365,
+        default_tz="America/Los_Angeles",
+        log_level="INFO",
+    )
+
+
+class _FakeClient:
+    def __init__(self, targets, raw_by_id=None):
+        self._targets = targets
+        self._raw = raw_by_id or {}
+        self.get_event_calls = []
+
+    def list_synced_events(self):
+        return iter(self._targets)
+
+    def get_event(self, google_event_id):
+        self.get_event_calls.append(google_event_id)
+        return self._raw.get(google_event_id, {})
+
+
+def _run_diagnose(fragment, *, sources, targets, raw_by_id=None):
+    client = _FakeClient(targets, raw_by_id)
+    with (
+        patch("calendar_sync.diagnose.fetch_ics", return_value="ICS_TEXT"),
+        patch("calendar_sync.diagnose.parse_ics", return_value=sources),
+        patch("calendar_sync.diagnose.build_service"),
+        patch("calendar_sync.diagnose.GoogleClient", return_value=client),
+    ):
+        code, text = diagnose(_cfg(), fragment)
+    return code, text, client
+
+
+def test_diagnose_no_match_exits_1():
+    code, text, _ = _run_diagnose("zzz", sources=[_src(uid="u1")], targets=[])
+    assert code == 1
+    assert "no matching events" in text
+    assert "zzz" in text
+
+
+def test_diagnose_multi_match_exits_2_and_lists_matches():
+    sources = [
+        _src(uid="u1", summary="Standup"),
+        _src(uid="u2", summary="Standup"),
+    ]
+    code, text, _ = _run_diagnose("standup", sources=sources, targets=[])
+    assert code == 2
+    assert "u1" in text and "u2" in text
+    assert "Refine the fragment" in text
+
+
+def test_diagnose_single_match_both_sides_clean():
+    s = _src(uid="u1", summary="Standup")
+    t = _tgt(google_event_id="g-1", ics_uid="u1", content_hash=content_hash(s))
+    code, text, _ = _run_diagnose(
+        "u1",
+        sources=[s],
+        targets=[t],
+        raw_by_id={"g-1": {"id": "g-1", "recurrence": []}},
+    )
+    assert code == 0
+    assert "SOURCE" in text and "TARGET" in text and "VERDICT" in text
+    assert "content hashes match" in text
+
+
+def test_diagnose_single_match_source_only_calls_no_get_event():
+    s = _src(uid="u1", summary="Standup")
+    code, text, client = _run_diagnose("u1", sources=[s], targets=[])
+    assert code == 0
+    assert "(no Google event)" in text
+    assert "Create" in text
+    assert client.get_event_calls == []
+
+
+def test_diagnose_single_match_target_only_inside_window():
+    now_like = datetime.now(timezone.utc)
+    t = TargetEvent(
+        google_event_id="g-orphan",
+        ics_uid="orphan-uid",
+        ics_recurrence_id=None,
+        sequence=0,
+        start=now_like,
+        content_hash="h",
+    )
+    code, text, _ = _run_diagnose(
+        "orphan",
+        sources=[],
+        targets=[t],
+        raw_by_id={"g-orphan": {"id": "g-orphan", "recurrence": None}},
+    )
+    assert code == 0
+    assert "(not in current feed)" in text
+    assert "Delete (vanished)" in text
