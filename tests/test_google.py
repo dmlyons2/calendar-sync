@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
@@ -13,23 +13,23 @@ SAFETY_TAG = "syncSource=outlook-ics"
 
 
 def _mock_service_with_pages(pages: list[dict]):
-    """Build a mocked Google discovery service whose events().list().execute() pages through `pages`."""
+    """Mock a Google discovery service whose events().list().execute() pages through `pages`."""
     service = MagicMock()
     list_chain = service.events.return_value.list
     list_next_chain = service.events.return_value.list_next
 
     list_chain.return_value.execute.return_value = pages[0]
     if len(pages) > 1:
-        list_next_chain.side_effect = [MagicMock(execute=MagicMock(return_value=p)) for p in pages[1:]] + [None]
+        list_next_chain.side_effect = [
+            MagicMock(execute=MagicMock(return_value=p)) for p in pages[1:]
+        ] + [None]
     else:
         list_next_chain.return_value = None
     return service, list_chain
 
 
 def test_list_synced_events_includes_safety_filter():
-    service, list_chain = _mock_service_with_pages(
-        [{"items": []}]
-    )
+    service, list_chain = _mock_service_with_pages([{"items": []}])
     client = GoogleClient(service=service, calendar_id="cal-1")
     list(client.list_synced_events())
 
@@ -76,8 +76,8 @@ def _source(**overrides) -> SourceEvent:
         summary="Standup",
         description="Daily",
         location="Zoom",
-        start=datetime(2026, 6, 15, 9, 0, tzinfo=timezone.utc),
-        end=datetime(2026, 6, 15, 10, 0, tzinfo=timezone.utc),
+        start=datetime(2026, 6, 15, 9, 0, tzinfo=UTC),
+        end=datetime(2026, 6, 15, 10, 0, tzinfo=UTC),
         tzid="America/Los_Angeles",
         rrule=None,
         exdates=(),
@@ -144,9 +144,7 @@ def test_delete_event_on_instance_id_works_via_same_api():
     client = GoogleClient(service=service, calendar_id="cal-1")
     client.delete_event("g-master_R20260615T160000Z")
 
-    delete.assert_called_once_with(
-        calendarId="cal-1", eventId="g-master_R20260615T160000Z"
-    )
+    delete.assert_called_once_with(calendarId="cal-1", eventId="g-master_R20260615T160000Z")
 
 
 def _http_error(status: int, reason: str | None) -> HttpError:
@@ -156,9 +154,7 @@ def _http_error(status: int, reason: str | None) -> HttpError:
     if reason is None:
         content = b"{}"
     else:
-        content = json.dumps(
-            {"error": {"code": status, "errors": [{"reason": reason}]}}
-        ).encode()
+        content = json.dumps({"error": {"code": status, "errors": [{"reason": reason}]}}).encode()
     return HttpError(resp, content)
 
 

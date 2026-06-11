@@ -1,10 +1,9 @@
 import logging
-
-import pytest
 from unittest.mock import patch
 
+import pytest
+
 from calendar_sync.__main__ import main
-from calendar_sync.config import ConfigError
 from calendar_sync.ics import IcsFetchError, IcsParseError
 from calendar_sync.sync import SyncResult
 

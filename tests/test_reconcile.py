@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from calendar_sync.models import (
     Create,
@@ -26,8 +26,8 @@ def _src(
         summary="Meeting",
         description=None,
         location=None,
-        start=start or datetime(2026, 6, 1, 15, 0, tzinfo=timezone.utc),
-        end=start or datetime(2026, 6, 1, 16, 0, tzinfo=timezone.utc),
+        start=start or datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
+        end=start or datetime(2026, 6, 1, 16, 0, tzinfo=UTC),
         tzid="America/Los_Angeles",
         rrule=None,
         exdates=(),
@@ -55,14 +55,14 @@ def _tgt(
         ics_uid=uid,
         ics_recurrence_id=recurrence_id,
         sequence=sequence,
-        start=start or datetime(2026, 6, 1, 15, 0, tzinfo=timezone.utc),
+        start=start or datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
         content_hash=content_hash_value,
     )
 
 
 WINDOW = Window(
-    start=datetime(2026, 1, 1, tzinfo=timezone.utc),
-    end=datetime(2026, 12, 31, tzinfo=timezone.utc),
+    start=datetime(2026, 1, 1, tzinfo=UTC),
+    end=datetime(2026, 12, 31, tzinfo=UTC),
 )
 
 
@@ -123,7 +123,7 @@ def test_recurring_master_synced_independently_of_overrides():
         "uid-1",
         recurrence_id="2026-06-15T15:00:00Z",
         sequence=1,
-        start=datetime(2026, 6, 15, 16, 0, tzinfo=timezone.utc),
+        start=datetime(2026, 6, 15, 16, 0, tzinfo=UTC),
     )
     actions = reconcile([master, override], [], WINDOW)
     assert len(actions) == 2
@@ -138,18 +138,14 @@ def test_cancel_one_occurrence_leaves_master_alone():
         status="CANCELLED",
         sequence=2,
     )
-    master_tgt = _tgt(
-        "uid-1", recurrence_id=None, google_event_id="g-master", sequence=2
-    )
+    master_tgt = _tgt("uid-1", recurrence_id=None, google_event_id="g-master", sequence=2)
     override_tgt = _tgt(
         "uid-1",
         recurrence_id="2026-06-15T15:00:00Z",
         google_event_id="g-instance",
         sequence=1,
     )
-    actions = reconcile(
-        [master_src, cancelled_override], [master_tgt, override_tgt], WINDOW
-    )
+    actions = reconcile([master_src, cancelled_override], [master_tgt, override_tgt], WINDOW)
     assert len(actions) == 1
     assert isinstance(actions[0], Delete)
     assert actions[0].google_event_id == "g-instance"
@@ -162,7 +158,7 @@ def test_modify_one_occurrence_updates_only_override():
         "uid-1",
         recurrence_id="2026-06-15T15:00:00Z",
         sequence=2,
-        start=datetime(2026, 6, 15, 17, 0, tzinfo=timezone.utc),
+        start=datetime(2026, 6, 15, 17, 0, tzinfo=UTC),
     )
     master_tgt = _tgt("uid-1", recurrence_id=None, google_event_id="g-master", sequence=1)
     override_tgt = _tgt(
@@ -178,7 +174,7 @@ def test_modify_one_occurrence_updates_only_override():
 
 
 def test_vanished_inside_window_is_deleted():
-    t = _tgt("uid-1", start=datetime(2026, 6, 1, 15, 0, tzinfo=timezone.utc))
+    t = _tgt("uid-1", start=datetime(2026, 6, 1, 15, 0, tzinfo=UTC))
     actions = reconcile([], [t], WINDOW)
     assert len(actions) == 1
     assert isinstance(actions[0], Delete)
@@ -186,7 +182,7 @@ def test_vanished_inside_window_is_deleted():
 
 
 def test_vanished_outside_window_is_left_alone():
-    t = _tgt("uid-1", start=datetime(2027, 6, 1, 15, 0, tzinfo=timezone.utc))
+    t = _tgt("uid-1", start=datetime(2027, 6, 1, 15, 0, tzinfo=UTC))
     actions = reconcile([], [t], WINDOW)
     assert actions == []
 
@@ -195,9 +191,9 @@ def test_cancelled_status_deletes_even_outside_window():
     s = _src(
         "uid-1",
         status="CANCELLED",
-        start=datetime(2027, 6, 1, 15, 0, tzinfo=timezone.utc),
+        start=datetime(2027, 6, 1, 15, 0, tzinfo=UTC),
     )
-    t = _tgt("uid-1", start=datetime(2027, 6, 1, 15, 0, tzinfo=timezone.utc))
+    t = _tgt("uid-1", start=datetime(2027, 6, 1, 15, 0, tzinfo=UTC))
     actions = reconcile([s], [t], WINDOW)
     assert len(actions) == 1
     assert isinstance(actions[0], Delete)

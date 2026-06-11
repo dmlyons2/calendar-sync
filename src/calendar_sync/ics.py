@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import requests
@@ -14,8 +14,8 @@ def _canonical_recurrence_id(value: datetime | date | None) -> str | None:
     if value is None:
         return None
     if isinstance(value, datetime):
-        v = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-        return v.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        v = value if value.tzinfo else value.replace(tzinfo=UTC)
+        return v.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return value.isoformat()
 
 
@@ -51,7 +51,7 @@ def _exdates(component) -> tuple[datetime, ...]:
         for dt in item.dts:
             v = dt.dt
             if isinstance(v, datetime):
-                out.append(v if v.tzinfo else v.replace(tzinfo=timezone.utc))
+                out.append(v if v.tzinfo else v.replace(tzinfo=UTC))
     return tuple(out)
 
 
@@ -65,9 +65,7 @@ def parse_ics(text: str, *, default_tz: str) -> list[SourceEvent]:
             dtend = dtend_prop.dt if dtend_prop is not None else dtstart
 
             rid_prop = component.get("recurrence-id")
-            recurrence_id = (
-                _canonical_recurrence_id(rid_prop.dt) if rid_prop is not None else None
-            )
+            recurrence_id = _canonical_recurrence_id(rid_prop.dt) if rid_prop is not None else None
 
             rrule_prop = component.get("rrule")
             rrule = rrule_prop.to_ical().decode() if rrule_prop is not None else None

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import date, datetime, timezone
-from typing import Iterable
+from collections.abc import Iterable
+from datetime import UTC, date, datetime
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -21,9 +21,7 @@ _RETRYABLE_403_REASONS = {"rateLimitExceeded", "userRateLimitExceeded"}
 
 
 def build_service(credentials_path: str):
-    creds = service_account.Credentials.from_service_account_file(
-        credentials_path, scopes=SCOPES
-    )
+    creds = service_account.Credentials.from_service_account_file(credentials_path, scopes=SCOPES)
     return build("calendar", "v3", credentials=creds, cache_discovery=False)
 
 
@@ -114,7 +112,7 @@ def _to_google_body(source) -> dict:
     if source.rrule:
         recurrence = [f"RRULE:{source.rrule}"]
         for ex in source.exdates:
-            recurrence.append(f"EXDATE:{ex.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}")
+            recurrence.append(f"EXDATE:{ex.astimezone(UTC).strftime('%Y%m%dT%H%M%SZ')}")
         body["recurrence"] = recurrence
     return body
 

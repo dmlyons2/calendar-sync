@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from .config import Config
 from .google import GoogleClient, build_service
@@ -25,7 +25,7 @@ class SyncResult:
 
 
 def build_window(cfg: Config, *, now: datetime | None = None) -> Window:
-    now = now or datetime.now(tz=timezone.utc)
+    now = now or datetime.now(tz=UTC)
     return Window(
         start=now - timedelta(days=cfg.lookback_days),
         end=now + timedelta(days=cfg.lookahead_days),
