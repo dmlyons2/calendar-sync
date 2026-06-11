@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from calendar_sync.diagnose import find_matches
 from calendar_sync.models import SourceEvent, TargetEvent
@@ -11,8 +11,8 @@ def _src(uid="uid-1", recurrence_id=None, summary="Standup", status="CONFIRMED")
         summary=summary,
         description=None,
         location=None,
-        start=datetime(2026, 6, 15, 9, 0, tzinfo=timezone.utc),
-        end=datetime(2026, 6, 15, 10, 0, tzinfo=timezone.utc),
+        start=datetime(2026, 6, 15, 9, 0, tzinfo=UTC),
+        end=datetime(2026, 6, 15, 10, 0, tzinfo=UTC),
         tzid="America/Los_Angeles",
         rrule=None,
         exdates=(),
@@ -27,7 +27,7 @@ def _tgt(google_event_id="g-1", ics_uid="uid-1", ics_recurrence_id=None, content
         ics_uid=ics_uid,
         ics_recurrence_id=ics_recurrence_id,
         sequence=0,
-        start=datetime(2026, 6, 15, 9, 0, tzinfo=timezone.utc),
+        start=datetime(2026, 6, 15, 9, 0, tzinfo=UTC),
         content_hash=content_hash,
     )
 
@@ -91,6 +91,7 @@ def test_find_matches_falls_back_to_target_when_source_has_no_match():
 # --- verdict tests ---
 
 from datetime import timedelta
+
 from calendar_sync.diagnose import verdict
 from calendar_sync.models import Window, content_hash
 
@@ -229,6 +230,7 @@ def test_render_target_renders_missing_recurrence_as_dash():
 # --- diagnose orchestration tests ---
 
 from unittest.mock import patch
+
 from calendar_sync.config import Config
 from calendar_sync.diagnose import diagnose
 
@@ -313,7 +315,7 @@ def test_diagnose_single_match_source_only_calls_no_get_event():
 
 
 def test_diagnose_single_match_target_only_inside_window():
-    now_like = datetime.now(timezone.utc)
+    now_like = datetime.now(UTC)
     t = TargetEvent(
         google_event_id="g-orphan",
         ics_uid="orphan-uid",

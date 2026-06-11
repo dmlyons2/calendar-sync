@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 from typing import Literal
 
 
@@ -13,9 +13,9 @@ class Window:
 
     def contains(self, value: datetime | date) -> bool:
         if isinstance(value, datetime):
-            v = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+            v = value if value.tzinfo else value.replace(tzinfo=UTC)
         else:
-            v = datetime.combine(value, time.min, tzinfo=timezone.utc)
+            v = datetime.combine(value, time.min, tzinfo=UTC)
         return self.start <= v <= self.end
 
 
@@ -70,9 +70,7 @@ def content_hash(source: SourceEvent) -> str:
     """Stable hash over the fields that matter for sync. Used in place of
     iCal SEQUENCE because Outlook frequently mutates events (adds EXDATEs,
     renames, moves times) without bumping SEQUENCE."""
-    exdates_utc = sorted(
-        ex.astimezone(timezone.utc).isoformat() for ex in source.exdates
-    )
+    exdates_utc = sorted(ex.astimezone(UTC).isoformat() for ex in source.exdates)
     parts = [
         source.summary,
         source.description or "",

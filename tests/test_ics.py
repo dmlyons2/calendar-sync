@@ -62,9 +62,7 @@ def test_floating_time_uses_default_tz(fixture_text):
 
 
 def test_recurring_with_cancelled_occurrence(fixture_text):
-    events = parse_ics(
-        fixture_text("recurring_with_cancellation.ics"), default_tz="UTC"
-    )
+    events = parse_ics(fixture_text("recurring_with_cancellation.ics"), default_tz="UTC")
     assert len(events) == 2
 
     master = next(e for e in events if e.recurrence_id is None)

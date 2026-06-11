@@ -34,7 +34,8 @@ def _run_sync(args, cfg, log) -> int:
     result = run(cfg, dry_run=args.dry_run)
     duration = time.monotonic() - started
     log.info(
-        "Sync complete: %d created, %d updated, %d deleted (%d cancelled, %d vanished), %d errors. Duration: %.1fs.",
+        "Sync complete: %d created, %d updated, %d deleted "
+        "(%d cancelled, %d vanished), %d errors. Duration: %.1fs.",
         result.created,
         result.updated,
         result.deleted_cancelled + result.deleted_vanished,

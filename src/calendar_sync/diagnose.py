@@ -76,9 +76,7 @@ def render_match_line(
 def render_source(source: SourceEvent | None) -> str:
     if source is None:
         return "SOURCE\n  (not in current feed)"
-    exdates = ", ".join(
-        ex.strftime("%Y%m%dT%H%M%SZ") for ex in source.exdates
-    ) or "—"
+    exdates = ", ".join(ex.strftime("%Y%m%dT%H%M%SZ") for ex in source.exdates) or "—"
     tz_suffix = f" ({source.tzid})" if source.tzid else ""
     return (
         "SOURCE\n"
@@ -124,8 +122,7 @@ def diagnose(cfg: Config, fragment: str) -> tuple[int, str]:
 
     if len(keys) > 1:
         lines = [
-            render_match_line(k, source=src_by_key.get(k), target=tgt_by_key.get(k))
-            for k in keys
+            render_match_line(k, source=src_by_key.get(k), target=tgt_by_key.get(k)) for k in keys
         ]
         lines.append("Refine the fragment.")
         return 2, "\n".join(lines)
