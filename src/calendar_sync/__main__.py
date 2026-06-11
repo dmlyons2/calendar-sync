@@ -48,7 +48,7 @@ def _run_sync(args, cfg, log) -> int:
 
 def _run_diagnose(args, cfg) -> int:
     code, text = diagnose(cfg, args.fragment)
-    print(text)
+    print(text, file=sys.stderr if code != 0 else sys.stdout)
     return code
 
 

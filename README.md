@@ -188,7 +188,7 @@ chmod 600 ~/.config/calendar-sync/env ~/.config/calendar-sync/service-account.js
 
 ```bash
 set -a; source ~/.config/calendar-sync/env; set +a
-.venv/bin/python -m calendar_sync --dry-run --log-level DEBUG
+.venv/bin/python -m calendar_sync sync --dry-run --log-level DEBUG
 ```
 
 **You should see:** log lines describing what the script *would* do. Nothing has changed on your Google calendar yet. The output starts with a "starting sync" line, lists each create/update/delete action it would take, and ends with a "Sync complete" summary. For example, on a first run with 47 new events:
@@ -204,7 +204,7 @@ INFO calendar_sync: Sync complete: 47 created, 0 updated, 0 deleted (0 cancelled
 >
 > ```powershell
 > Get-Content $HOME\calendar-sync\env | ForEach-Object { if ($_ -match '^([^=]+)=(.*)$') { [Environment]::SetEnvironmentVariable($matches[1], $matches[2]) } }
-> .venv\Scripts\python -m calendar_sync --dry-run --log-level DEBUG
+> .venv\Scripts\python -m calendar_sync sync --dry-run --log-level DEBUG
 > ```
 
 ### Step 8. Run it once for real
