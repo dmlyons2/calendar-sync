@@ -160,3 +160,10 @@ class GoogleClient:
             .delete(calendarId=self._calendar_id, eventId=google_event_id)
             .execute
         )
+
+    def get_event(self, google_event_id: str) -> dict:
+        return _retry(
+            self._service.events()
+            .get(calendarId=self._calendar_id, eventId=google_event_id)
+            .execute
+        )

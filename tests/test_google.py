@@ -240,3 +240,15 @@ def test_to_google_body_serializes_exdate_in_utc():
     body = insert.call_args.kwargs["body"]
     # 9am Los Angeles in June (DST, UTC-7) == 16:00 UTC
     assert "EXDATE:20260615T160000Z" in body["recurrence"]
+
+
+def test_get_event_calls_api_with_event_id():
+    service = MagicMock()
+    get = service.events.return_value.get
+    get.return_value.execute.return_value = {"id": "g-1", "recurrence": ["RRULE:FREQ=DAILY"]}
+
+    client = GoogleClient(service=service, calendar_id="cal-1")
+    result = client.get_event("g-1")
+
+    get.assert_called_once_with(calendarId="cal-1", eventId="g-1")
+    assert result == {"id": "g-1", "recurrence": ["RRULE:FREQ=DAILY"]}
