@@ -86,3 +86,79 @@ def test_find_matches_falls_back_to_target_when_source_has_no_match():
     tgt = [_tgt(ics_uid="orphan-uid")]
     keys = find_matches(src, tgt, "orphan")
     assert keys == [("orphan-uid", None)]
+
+
+# --- verdict tests ---
+
+from datetime import timedelta
+from calendar_sync.diagnose import verdict
+from calendar_sync.models import Window, content_hash
+
+
+def _window_around(dt):
+    return Window(start=dt - timedelta(days=1), end=dt + timedelta(days=1))
+
+
+def _window_far_from(dt):
+    return Window(
+        start=dt - timedelta(days=400),
+        end=dt - timedelta(days=300),
+    )
+
+
+def test_verdict_create_when_only_source():
+    s = _src()
+    w = _window_around(s.start)
+    assert verdict(s, None, w) == "Create — source present, no target"
+
+
+def test_verdict_update_when_hashes_differ():
+    s = _src()
+    t = _tgt(content_hash="different")
+    w = _window_around(s.start)
+    v = verdict(s, t, w)
+    assert v.startswith("Update — content_hash differs")
+    assert content_hash(s) in v
+    assert "different" in v
+
+
+def test_verdict_none_when_hashes_match():
+    s = _src()
+    t = _tgt(content_hash=content_hash(s))
+    w = _window_around(s.start)
+    assert verdict(s, t, w) == "none — content hashes match"
+
+
+def test_verdict_delete_cancelled_when_source_cancelled_and_target_exists():
+    s = _src(status="CANCELLED")
+    t = _tgt(content_hash=content_hash(s))
+    w = _window_around(s.start)
+    assert verdict(s, t, w) == "Delete (cancelled) — source.status=CANCELLED, target exists"
+
+
+def test_verdict_none_when_source_cancelled_and_no_target():
+    s = _src(status="CANCELLED")
+    w = _window_around(s.start)
+    assert verdict(s, None, w) == "none — source.status=CANCELLED and no target"
+
+
+def test_verdict_delete_vanished_when_target_inside_window_and_source_missing():
+    t = _tgt()
+    w = _window_around(t.start)
+    assert verdict(None, t, w) == "Delete (vanished) — target inside window, source missing"
+
+
+def test_verdict_none_when_target_outside_window_and_source_missing():
+    t = _tgt()
+    w = _window_far_from(t.start)
+    assert verdict(None, t, w) == "none — target outside window, source missing"
+
+
+def test_verdict_update_renders_none_target_hash_as_unset():
+    s = _src()
+    t = _tgt(content_hash=None)
+    w = _window_around(s.start)
+    v = verdict(s, t, w)
+    assert "Update" in v
+    assert "target=(unset)" in v
+    assert "target=None" not in v
